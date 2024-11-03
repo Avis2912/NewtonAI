@@ -26,7 +26,7 @@ const tools = [
         properties: {
           description: {
             type: "string",
-            description: "A short 2-5 word description of what needs to be visualized"
+            description: "A short 2-5 word description of what needs to be visualized, in title case."
           }
         },
         required: ["description"]
@@ -51,7 +51,7 @@ const Overlay = styled(motion.div)`
 
 const CircleLarge = styled(motion.div)`
   width: 150px;
-  min-height: 150px;
+  min-height: ${props => props.isResponding ? '175px' : '150px'};
   border-radius: 50%;
   background: url(${props => props.image}) no-repeat center center;
   background-size: cover;
@@ -59,7 +59,9 @@ const CircleLarge = styled(motion.div)`
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: min-height 0.3s ease;
 `;
+
 
 // Add new styled components for sound waves
 const SoundWaveContainer = styled.div`
@@ -126,7 +128,7 @@ const CloseButton = styled.button`
 `;
 
 const CollapseButton = styled(CloseButton)`
-  right: 4rem;
+  right: 4.5rem;
   opacity: 0.4;
 
   &:hover {
@@ -146,6 +148,17 @@ const Transcript = styled.div`
   text-align: center;
 `;
 
+// Add new styled component after Transcript
+const UserTranscript = styled.div`
+  width: ${props => props.isVisualPaneOpen ? '65%' : '40%'};
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  line-height: 1.8;
+  color: white;
+  opacity: 0.35;
+  margin-top: 0.65rem;
+  text-align: center;
+`;
 
 const ToggleButton = styled.button`
   position: absolute;
@@ -217,6 +230,12 @@ const VisualPane = styled.div`
     background: rgba(255, 255, 255, 0.3);
     border-radius: 4px;
   }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    margin-bottom: 1rem;
+    color: white;
+  }
 `;
 
 const VisualImage = styled.img`
@@ -227,17 +246,30 @@ const VisualImage = styled.img`
 `;
 
 const ExplanationBox = styled.div`
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   padding: 1.5rem;
+  margin-bottom: 4rem;
   color: white;
   font-weight: 200;
   margin-top: 1rem;
-  height: fit-content;
-  min-height: 200px;
+  overflow-y: auto;   // Add scrolling
+  
+  /* Scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+  }
 `;
 
 const RichTextExplanationBox = styled(ExplanationBox)`
+  font-family: 'Fraunces', serif;
   font-size: 16px;
   line-height: 1.6;
   height: fit-content;
@@ -283,7 +315,7 @@ function floatTo16BitPCM(float32Array) {
   return buffer;
 }
 
-const SpeakingOverlay = ({ onClose, image }) => {
+const SpeakingOverlay = ({ onClose, image, previousContext }) => {
 
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -307,18 +339,50 @@ const SpeakingOverlay = ({ onClose, image }) => {
   const mediaRecorder = useRef(null);
   const audioChunks = useRef([]);
   const descriptionRef = useRef(''); // Add this ref to maintain description between renders
+  const [userTranscript, setUserTranscript] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const transcriptionInterval = useRef(null);
+  const currentAudioChunk = useRef(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isVisualizing, setIsVisualizing] = useState(false);
 
+  // Initialize messages with previous context if available
+  useEffect(() => {
+    if (previousContext && previousContext.answer) {
+      const contextMessages = [
+        {
+          role: "system",
+          content: "You are a helpful research assistant. Previous context: The user asked about: " + 
+                  previousContext.query
+        },
+        {
+          role: "assistant",
+          content: `Here's what I found earlier: ${previousContext.directAnswer}\n\n` +
+                  `Detailed analysis: ${previousContext.answer.replace(/<\/?p>/g, '')}\n\n` +
+                  `Key points: ${previousContext.keyPoints?.map(kp => `${kp.emoji} ${kp.point}`).join(', ')}`
+        }
+      ];
+      setMessages(contextMessages);
+    }
+  }, [previousContext]);
 
   // Update visualize_data function
   const visualize_data = async (description) => {
-    const retrievedImage = await fetchWebImage(description);
-    setVisualizedImage(retrievedImage);
-    setVisualizedHeader(description);
-    setIsVisualPaneOpen(true);
-    console.log('Visualized:', description);
-    const descriptionResponse = await describeVisualizedImage(retrievedImage);
-    setVisualizedDescription(descriptionResponse);
-    return `You, the LLM agent, have created a visualization and a description for: ${description}. JUST tell the user that you've done so on the right hand side, just describe what the user asked to visualize in one short line and nothing more.`;
+    setIsVisualizing(true);
+    try {
+      const retrievedImage = await fetchWebImage(description);
+      setVisualizedImage(retrievedImage);
+      setVisualizedHeader(description);
+      setIsVisualPaneOpen(true);
+      console.log('Visualized:', description);
+      const descriptionResponse = await describeVisualizedImage(retrievedImage);
+      setVisualizedDescription(descriptionResponse);
+      setIsVisualizing(false);
+      return `You, the LLM agent, have created a visualization and a description for: ${description}. JUST tell the user that you've done so on the right hand side, just describe what the user asked to visualize in one short line and nothing more.`;
+    } catch (error) {
+      setIsVisualizing(false);
+      throw error;
+    }
   };
 
   // Update encodeImageToBase64 in SpeakingOverlay.js
@@ -360,7 +424,7 @@ const SpeakingOverlay = ({ onClose, image }) => {
         messages: [
           {
             role: "system", 
-            content: "Create a rich, detailed markdown description of the image in the context on the previous visualization prompt right before. Use subheadings (but no headings), lists, and other markdown formatting to make the description engaging and well-structured. Include sections like:\n\n# Visual Analysis\n## Composition\n## Colors and Lighting\n## Key Elements\n\n# Interpretation\n## Mood and Atmosphere\n## Overall Impression"
+            content: "Create a rich, detailed markdown description of the image in the context on the previous visualization prompt right before. Use subheadings (but no headings), lists, and other markdown formatting to make the description engaging and well-structured. Include sections & subheadings (but never big headings)."
           },
           ...messages,
           {
@@ -524,25 +588,50 @@ const SpeakingOverlay = ({ onClose, image }) => {
     }
   };
 
+  // Add this new function for chunk processing
+  const processAudioChunk = async (audioChunk) => {
+    try {
+      const file = new File([audioChunk], 'chunk.webm', { type: 'audio/webm' });
+      
+      const transcription = await openai.audio.transcriptions.create({
+        file: file,
+        model: "whisper-1",
+        language: "en"
+      });
+
+      setUserTranscript(prev => prev + " " + transcription.text);
+    } catch (error) {
+      console.error('Error transcribing chunk:', error);
+    }
+  };
+
+  // Update startManualRecording
   const startManualRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder.current = new MediaRecorder(stream);
       audioChunks.current = [];
+      setUserTranscript('');
+      setIsTranscribing(true);
 
-      mediaRecorder.current.ondataavailable = (event) => {
+      mediaRecorder.current.ondataavailable = async (event) => {
         audioChunks.current.push(event.data);
+        currentAudioChunk.current = event.data;
+        await processAudioChunk(event.data);
       };
 
-      mediaRecorder.current.start();
+      // Set chunk interval to 2 seconds for real-time transcription
+      mediaRecorder.current.start(2000);
       setIsManualRecording(true);
     } catch (error) {
       console.error('Error starting recording:', error);
     }
   };
 
+  // Update stopManualRecording
   const stopManualRecording = async () => {
     if (!mediaRecorder.current) return;
+    setIsTranscribing(false);
 
     mediaRecorder.current.onstop = async () => {
       const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
@@ -551,13 +640,14 @@ const SpeakingOverlay = ({ onClose, image }) => {
       try {
         setIsResponding(true);
 
-        // Get transcription
-        const transcription = await openai.audio.transcriptions.create({
+        // Get final transcription
+        const finalTranscription = await openai.audio.transcriptions.create({
           file: file,
           model: "whisper-1",
         });
 
-        const userMessage = { role: "user", content: transcription.text };
+        setUserTranscript(finalTranscription.text);
+        const userMessage = { role: "user", content: finalTranscription.text };
         const updatedMessages = [...messages, userMessage];
         setMessages(updatedMessages);
 
@@ -716,6 +806,7 @@ const SpeakingOverlay = ({ onClose, image }) => {
   // Add this function to handle text-to-speech streaming
   const streamTextToSpeech = async (text) => {
     try {
+      setIsSpeaking(true);
       const response = await openai.audio.speech.create({
         model: "tts-1",
         voice: "nova",
@@ -731,9 +822,11 @@ const SpeakingOverlay = ({ onClose, image }) => {
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
+      source.onended = () => setIsSpeaking(false);
       source.start(0);
     } catch (error) {
       console.error('Error streaming TTS:', error);
+      setIsSpeaking(false);
     }
   };
 
@@ -769,21 +862,41 @@ const SpeakingOverlay = ({ onClose, image }) => {
             </SoundWaveContainer> */}
             <CircleLarge
               initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              animate={{ 
+                scale: 1,
+                width: isSpeaking ? 175 : 150,
+                height: isSpeaking ? 175 : 150,
+                transition: 'all 0.3s ease',
+                border: isSpeaking ? '0px solid #ff4444' : 'none'
+              }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 260, 
+                damping: 20,
+                width: { duration: 1, ease: "easeInOut" },
+                height: { duration: 1, ease: "easeInOut" }
+              }}
               image={image}
+              isResponding={isResponding}
             />
           </>
           <SpeakingText>
             {isVadMode 
               ? (isListening ? 'Speak now' : 'Processing...') 
-              : isResponding 
-                ? 'Responding...'
-                : (isManualRecording ? 'Recording... (Release space to send)' : 'Press and hold space to speak')}
+              : isVisualizing
+                ? 'Visualizing information...'
+                : isResponding 
+                  ? 'Responding...'
+                  : (isManualRecording ? 'Recording... (Release space to send)' : 'Press and hold space to speak')}
           </SpeakingText>
           <Transcript isVisualPaneOpen={isVisualPaneOpen}>
             {transcript}
           </Transcript>
+          {!isVadMode && userTranscript && (
+            <UserTranscript isVisualPaneOpen={isVisualPaneOpen}>
+              Me: {userTranscript}
+            </UserTranscript>
+          )}
         </MainPane>
         {isVisualPaneOpen && (
           <motion.div

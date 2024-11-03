@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import ArticleCard from './ArticleCard';
 import { Icon } from '@iconify/react';
@@ -13,7 +13,24 @@ const AppContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #fafafa;
+  background: linear-gradient(
+    120deg,
+    #fafafa 0%,
+    #f8f9ff 50%,
+    #fafafa 100%
+  );
+  position: relative;
+  overflow: hidden;
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
 `;
 
 const Content = styled.div`
@@ -96,6 +113,17 @@ const CircleButton = styled.button`
   align-items: center;
   justify-content: center;
   z-index: 100;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+
+  &:hover .tooltip {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `;
 
 const NewSessionButton = styled(CircleButton)`
@@ -104,7 +132,8 @@ const NewSessionButton = styled(CircleButton)`
   border: 1px solid #e0e0e0;
   
   &:hover {
-    background: #ebebeb;
+    background: #f0f0f0;
+    transform: scale(1.05) rotate(0deg);
   }
 `;
 
@@ -189,7 +218,7 @@ const KeyPointsContainer = styled.div`
   flex-wrap: wrap;
   
   &:before {
-    content: 'Key Points';
+    content: 'Key Facts & Figures';
     display: block;
     width: 100%;
     font-family: 'Fraunces', serif;
@@ -307,6 +336,71 @@ const InlineCitation = styled.sup`
   }
 `;
 
+const FloatingParticle = styled(motion.div)`
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(100, 100, 100, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+`;
+
+const ButtonTooltip = styled.div`
+  position: absolute;
+  bottom: -40px;
+
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  font-family: 'Inter', sans-serif;
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid rgba(0, 0, 0, 0.8);
+  }
+`;
+
+const DirectAnswerSection = styled(motion.div)`
+  background: linear-gradient(to right, #f8f9ff, #ffffff);
+  padding: 1.2rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 1.3rem;
+  
+  p {
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.15px;
+    font-size: 1rem;
+    color: #333;
+    font-weight: 400;
+    margin: 0;
+    line-height: 1.7;
+  }
+`;
+
+const RichTextAnswer = styled.div`
+  p {
+    margin-bottom: 1.5rem;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+`;
+
 function App() {
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
@@ -320,6 +414,8 @@ function App() {
   const [keyPoints, setKeyPoints] = useState([]);
   const [isReady, setIsReady] = useState(false);
   const [topCitations, setTopCitations] = useState([]);
+  const [floatingParticles, setFloatingParticles] = useState([]);
+  const [directAnswer, setDirectAnswer] = useState('');
 
   const exampleQueries1 = [
       "🧬 Is aspartame bad for me?",
@@ -444,6 +540,38 @@ function App() {
     }
   };
 
+  const generateDirectAnswer = async (text) => {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo-1106",
+          messages: [
+            {
+              role: "system",
+              content: "Provide a direct, simple 2 sentence consensus answer to the question based on the given text. Use clear, accessible language."
+            },
+            {
+              role: "user",
+              content: `Original question: ${query}\n\nText to summarize: ${text}`
+            }
+          ]
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error('Failed to generate direct answer');
+      setDirectAnswer(data.choices[0].message.content);
+    } catch (error) {
+      console.error('Error generating direct answer:', error);
+      setDirectAnswer('');
+    }
+  };
+
   const generateAnswer = async (articles) => {
     setIsGenerating(true);
     setIsReady(false);
@@ -462,7 +590,7 @@ function App() {
           messages: [
             { 
               role: "system", 
-              content: "You are a research assistant providing one-paragraph summaries. Group related findings and use multiple citations when appropriate. Format citations as [1], [1,2], etc." 
+              content: "You are a research assistant providing two-paragraph summaries. Group related findings and use multiple citations when appropriate. Format citations as [1], [1,2], etc." 
             },
             { role: "user", content: prompt }
           ]
@@ -473,13 +601,19 @@ function App() {
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
       }
-      setAnswer(data.choices[0].message.content);
+      const formattedAnswer = data.choices[0].message.content
+        .split('\n\n')
+        .map(p => `<p>${p}</p>`)
+        .join('');
+      setAnswer(formattedAnswer);
       
       // Store the first 5 articles for citations
       setTopCitations(articles.slice(0, 5).map(a => ({
         title: a.title,
         authors: a.authors
       })));
+      
+      await generateDirectAnswer(formattedAnswer);
       
       // Generate both consensus score and key points
       await Promise.all([
@@ -541,10 +675,7 @@ function App() {
     // Remove the emoji and trim
     const cleanQuery = queryText.replace(/^[^\s]+\s/, '').trim();
     setQuery(cleanQuery);
-    // Trigger search immediately
-    setTimeout(() => {
-      getResearchArticles();
-    }, 1000);
+    getResearchArticles();
   };
 
   const toggleSpeaking = () => setIsSpeaking(!isSpeaking);
@@ -558,20 +689,59 @@ function App() {
 
   const newtonImage = 'https://applescoop.org/image/wallpapers/iphone/13243688646369157-70753860237924132.jpg';
 
+  useEffect(() => {
+    const particles = [];
+    const numParticles = 20;
+
+    for (let i = 0; i < numParticles; i++) {
+      particles.push({
+        id: i,
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+      });
+    }
+
+    setFloatingParticles(particles);
+  }, []);
+
   return (
     <AppContainer>
+      {floatingParticles.map((particle) => (
+        <FloatingParticle
+          key={particle.id}
+          initial={{ x: particle.x, y: particle.y }}
+          animate={{
+            x: [particle.x - 50, particle.x + 50, particle.x],
+            y: [particle.y - 50, particle.y + 50, particle.y],
+          }}
+          transition={{
+            duration: 20 + Math.random() * 10,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+      ))}
       <AnimatePresence>
         {isSpeaking && (
           <SpeakingOverlay 
             onClose={() => setIsSpeaking(false)}
             image={newtonImage}
+            previousContext={{
+              answer,
+              directAnswer,
+              keyPoints,
+              query
+            }}
           />
         )}
       </AnimatePresence>
       
-      <CircleButton onClick={toggleSpeaking} image={newtonImage} />
+      <CircleButton onClick={toggleSpeaking} image={newtonImage}>
+        <ButtonTooltip className="tooltip">Live Talk</ButtonTooltip>
+      </CircleButton>
       <NewSessionButton onClick={resetSession}>
         <Icon icon="ph:plus-bold" style={{ fontSize: '20px', color: '#1a1a1a' }} />
+        <ButtonTooltip className="tooltip">New Session</ButtonTooltip>
       </NewSessionButton>
 
       <Content>
@@ -585,7 +755,7 @@ function App() {
           <>
             <AnswerSection>
               <HeaderRow>
-                <h1>Answer</h1>
+                <h1>{query}</h1>
                 {isReady && (
                   <ScoreContainer>
                     <CitationList>
@@ -618,31 +788,20 @@ function App() {
                 </SkeletonAnswer>
               ) : (
                 <>
-                  <p>
-                    {answer.split(/(\[[0-9,]+\])/).map((segment, i) => {
-                      if (segment.match(/\[[0-9,]+\]/)) {
-                        const nums = segment
-                          .replace(/[\[\]]/g, '')
-                          .split(',')
-                          .map(n => parseInt(n.trim()))
-                          .filter(n => n > 0 && n <= topCitations.length);
-                        
-                        return (
-                          <span key={i}>
-                            {nums.map((num, idx) => (
-                              <InlineCitation key={`${i}-${idx}`}>
-                                {num}
-                                <CitationTooltip className="tooltip">
-                                  {topCitations[num - 1].title}
-                                </CitationTooltip>
-                              </InlineCitation>
-                            ))}
-                          </span>
-                        );
-                      }
-                      return segment;
-                    })}
-                  </p>
+                  {directAnswer && (
+                    <DirectAnswerSection
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <p>{directAnswer}</p>
+                    </DirectAnswerSection>
+                  )}
+                  <RichTextAnswer
+                    dangerouslySetInnerHTML={{
+                      __html: answer
+                    }}
+                  />
                   {isReady && keyPoints && keyPoints.length > 0 && (
                     <KeyPointsContainer>
                       {keyPoints.map((point, index) => (
@@ -662,7 +821,7 @@ function App() {
             </AnswerSection>
             <Grid>
               {articles.map((article, index) => (
-                <ArticleCard key={index} article={article} />
+                <ArticleCard key={index} article={article} index={index} />
               ))}
             </Grid>
           </>

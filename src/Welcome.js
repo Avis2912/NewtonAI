@@ -73,9 +73,9 @@ const LogoImage = styled.img`
 const Welcome = ({ exampleQueries1, exampleQueries2, handleExampleClick }) => {
   return (
     <WelcomeContainer>
-      <LogoImage src="/NewtonAi.png" alt="Newton AI Logo" />
+      {/* <LogoImage src="/NewtonAi.png" alt="Newton AI Logo" /> */}
       <h1 style={{marginTop: '90px', letterSpacing: '-0.15px'}}>Newton AI</h1>
-      <p className="subtitle" style={{fontSize: '16px', letterSpacing: '-0.25px'}}>
+      <p className="subtitle" style={{fontSize: '16px', letterSpacing: '-0.25px', marginBottom: '15px'}}>
         Research Answers Created For Everyone
       </p>
       

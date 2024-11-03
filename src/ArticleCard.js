@@ -121,7 +121,7 @@ const BarFill = styled.div`
   transition: width 0.6s ease, background-color 0.6s ease;
 `;
 
-function ArticleCard({ article }) {
+function ArticleCard({ article, index }) {
   const [credibilityScore, setCredibilityScore] = useState(50);
 
   useEffect(() => {
@@ -167,9 +167,12 @@ function ArticleCard({ article }) {
       
       <CardFooter>
         <DateDisplay className="date">{article.published}</DateDisplay>
-        <LinkIcon href={article.link} target="_blank" className="link-icon">
-          <Icon icon="ph:link-bold" style={{height: 16, width: 16}}/>
-        </LinkIcon>
+        <div style={{display: 'flex', alignItems: 'center', height: 18,}}>
+          <p style={{marginRight: 12, color: 'gray',}}>{index}</p>
+          <LinkIcon href={article.link} target="_blank" className="link-icon">
+            <Icon icon="ph:link-bold" style={{height: 15, width: 15}}/>
+          </LinkIcon>
+        </div>
       </CardFooter>
     </Card>
   );
