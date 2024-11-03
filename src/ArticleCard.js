@@ -168,7 +168,7 @@ function ArticleCard({ article, index }) {
       <CardFooter>
         <DateDisplay className="date">{article.published}</DateDisplay>
         <div style={{display: 'flex', alignItems: 'center', height: 18,}}>
-          <p style={{marginRight: 12, color: 'gray',}}>{index}</p>
+          <p style={{marginRight: 12, color: 'gray',}}>{index+1}</p>
           <LinkIcon href={article.link} target="_blank" className="link-icon">
             <Icon icon="ph:link-bold" style={{height: 15, width: 15}}/>
           </LinkIcon>

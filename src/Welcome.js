@@ -74,8 +74,8 @@ const Welcome = ({ exampleQueries1, exampleQueries2, handleExampleClick }) => {
   return (
     <WelcomeContainer>
       {/* <LogoImage src="/NewtonAi.png" alt="Newton AI Logo" /> */}
-      <h1 style={{marginTop: '90px', letterSpacing: '-0.15px'}}>Newton AI</h1>
-      <p className="subtitle" style={{fontSize: '16px', letterSpacing: '-0.25px', marginBottom: '15px'}}>
+      <h1 style={{marginTop: '95px', letterSpacing: '-0.15px'}}>Newton AI</h1>
+      <p className="subtitle" style={{fontSize: '16px', letterSpacing: '-0.25px', marginBottom: '12.5px'}}>
         Research Answers Created For Everyone
       </p>
       

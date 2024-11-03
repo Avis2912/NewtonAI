@@ -211,9 +211,28 @@ const ConsensusScore = styled.div`
   }
 `;
 
-const KeyPointsContainer = styled.div`
+const SmallHeadingContainer = styled.div`
   display: flex;
   gap: 0.55em;
+  margin-top: 0rem;
+  flex-wrap: wrap;
+  margin-left: 2rem;
+  
+  &:before {
+    content: '${props => props.content}';
+    display: block;
+    width: 100%;
+    font-family: 'Fraunces', serif;
+    font-size: 1.15rem;
+    margin-bottom: 0.8rem;
+    color: #333;
+  }
+`;
+
+
+const KeyPointsContainer = styled.div`
+  display: flex;
+  gap: 0.55rem;
   margin-top: 2.5rem;
   flex-wrap: wrap;
   
@@ -298,11 +317,10 @@ const CitationTooltip = styled.div`
   bottom: 130%;
   left: 50%;
   transform: translateX(-50%) translateY(10px);
-  padding: 0.7rem 1rem;
+  padding: 0.8rem 1rem;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 0.85rem;
   color: #333;
   white-space: nowrap;
   opacity: 0;
@@ -311,6 +329,17 @@ const CitationTooltip = styled.div`
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 100;
   font-family: 'Inter', sans-serif;
+  min-width: 200px;
+
+  .title {
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .meta {
+    font-size: 0.75rem;
+    color: #666;
+  }
 `;
 
 const InlineCitation = styled.sup`
@@ -375,7 +404,7 @@ const ButtonTooltip = styled.div`
 
 const DirectAnswerSection = styled(motion.div)`
   background: linear-gradient(to right, #f8f9ff, #ffffff);
-  padding: 1.2rem 1.5rem;
+  padding: 1.2rem 1.25rem;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
   margin-bottom: 1.3rem;
@@ -401,6 +430,29 @@ const RichTextAnswer = styled.div`
   }
 `;
 
+const RelatedQuestion = styled(motion.div)`
+  padding: 0.55rem 0.9rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  white-space: normal;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f8f9ff;
+    transform: translateY(-1px);
+  }
+`;
+
 function App() {
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
@@ -416,29 +468,30 @@ function App() {
   const [topCitations, setTopCitations] = useState([]);
   const [floatingParticles, setFloatingParticles] = useState([]);
   const [directAnswer, setDirectAnswer] = useState('');
+  const [relatedQuestions, setRelatedQuestions] = useState([]);
 
   const exampleQueries1 = [
       "🧬 Is aspartame bad for me?",
-      "🌊 Are Europa's oceans confirmed?",
-      "✨ What causes aurora borealis?",
-      "🕳️ How do black holes form?",
+      "🌊 Are Europa's oceans habitable?",
+      "✨ Do solar flares affect human behavior?",
+      "🕳️ Can information escape black holes?",
       "🧠 Can AI become conscious?",
-      "🦕 Why did dinosaurs go extinct?",
-      "🦠 How do viruses mutate?",
-      "🌡️ What causes climate change?",
-      "🧩 How does quantum entanglement work?"
+      "🦕 Were dinosaurs warm-blooded?",
+      "🦠 Can viruses be beneficial?",
+      "🌡️ Is global warming reversible?",
+      "🧩 Is quantum teleportation possible?"
   ];
-
+  
   const exampleQueries2 = [
       "💻 Can quantum computers break encryption?",
-      "⚡ Is fusion energy possible?",
-      "🌌 What is dark matter made of?",
-      "🌍 How old is the universe?",
-      "🧪 How do vaccines work?",
-      "🔬 What is CRISPR gene editing?",
-      "🧮 Can we solve P vs NP?",
-      "🧫 How do stem cells work?",
-      "🛸 Is there life on Mars?"
+      "⚡ Is fusion energy commercially viable?",
+      "🌌 Does dark matter interact with itself?",
+      "🌍 Is the universe infinite?",
+      "🧪 Are vaccine side effects underreported?",
+      "🔬 Should CRISPR be used on humans?",
+      "🧮 Is P equal to NP?",
+      "🧫 Can stem cells cure aging?",
+      "🛸 Is alien life microbial?"
   ];
 
   const parseXMLResponse = (xmlData) => {
@@ -499,6 +552,7 @@ function App() {
   };
 
   const generateKeyPoints = async (text) => {
+    const summaries = articles.map((a, i) => `[${i + 1}] ${a.summary}`).join('\n\n');
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -512,11 +566,11 @@ function App() {
           messages: [
             {
               role: "system",
-              content: "Extract 3-4 TLDR key points in shorthand style (6-10 words each). Return as JSON with 'keyPoints' array containing objects with 'emoji' and 'point' properties. Make points very concise."
+              content: "Extract 5-6 key facts and figures in shorthand style (6-10 words each). Return as JSON with 'keyPoints' array containing objects with 'emoji' and 'point' properties. Make points very concise."
             },
             {
               role: "user",
-              content: `Extract short key points from: ${text}`
+              content: `Extract facts and figures that are relevant to the user's prompt "${text}" points from: ${summaries}`
             }
           ]
         }),
@@ -572,11 +626,50 @@ function App() {
     }
   };
 
+  const generateRelatedQuestions = async (text) => {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo-1106",
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content: "Generate 5 related questions that users might also ask about this topic. Return as JSON with 'questions' array containing objects with 'emoji' and 'question' properties. Make questions concise and engaging."
+            },
+            {
+              role: "user",
+              content: `Generate related questions for: ${query}\n\nBased on this content: ${text}`
+            }
+          ]
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error('Failed to generate related questions');
+      
+      const result = JSON.parse(data.choices[0].message.content);
+      if (!result.questions || !Array.isArray(result.questions)) {
+        throw new Error('Invalid questions format');
+      }
+      
+      setRelatedQuestions(result.questions);
+    } catch (error) {
+      console.error('Error generating related questions:', error);
+      setRelatedQuestions([]);
+    }
+  };
+
   const generateAnswer = async (articles) => {
     setIsGenerating(true);
     setIsReady(false);
     const summaries = articles.map((a, i) => `[${i + 1}] ${a.summary}`).join('\n\n');
-    const prompt = `Based on these research paper abstracts, provide a comprehensive summary. Group related findings together and cite multiple papers that support each statement. Use citation numbers [1-5] at the end of statements to indicate supporting papers. Format example: "This is a finding supported by multiple studies.[1,2,4]" or "This is a specific finding.[3]"\n\n${summaries}`;
+    const prompt = `Based on these research paper abstracts, provide a comprehensive summary. Group related findings together and cite papers using numbers in square brackets [1-5]. Always include at least one citation for each statement. Use multiple citations when findings are supported by multiple papers. Format citations at the end of sentences, before the period, like this [1] or [1,2,3]. Each major claim must have a citation.\n\n${summaries}`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -601,7 +694,14 @@ function App() {
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
       }
-      const formattedAnswer = data.choices[0].message.content
+      const processAnswer = (answer) => {
+        // Replace citation patterns with properly formatted ones
+        return answer.replace(/\[(\d+(?:,\s*\d+)*)\]/g, (match, nums) => {
+          const citations = nums.split(',').map(n => n.trim());
+          return `<sup class="citation">[${citations.join(',')}]</sup>`;
+        });
+      };
+      const formattedAnswer = processAnswer(data.choices[0].message.content)
         .split('\n\n')
         .map(p => `<p>${p}</p>`)
         .join('');
@@ -610,15 +710,17 @@ function App() {
       // Store the first 5 articles for citations
       setTopCitations(articles.slice(0, 5).map(a => ({
         title: a.title,
-        authors: a.authors
+        authors: a.authors,
+        published: a.published
       })));
       
       await generateDirectAnswer(formattedAnswer);
       
       // Generate both consensus score and key points
       await Promise.all([
-        calculateConsensusScore(data.choices[0].message.content),
-        generateKeyPoints(data.choices[0].message.content)
+        calculateConsensusScore(formattedAnswer),
+        generateKeyPoints(data.choices[0].message.content),
+        generateRelatedQuestions(formattedAnswer)
       ]);
       
       setIsReady(true);
@@ -763,7 +865,8 @@ function App() {
                         <CitationDot key={i}>
                           {i + 1}
                           <CitationTooltip className="tooltip">
-                            {cite.title}
+                            <div className="title">{cite.title}</div>
+                            <div className="meta">{cite.authors} | {cite.published} </div>
                           </CitationTooltip>
                         </CitationDot>
                       ))}
@@ -794,7 +897,7 @@ function App() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <p>{directAnswer}</p>
+                      <p><strong>🔎 Quick Answer: </strong>{directAnswer}</p>
                     </DirectAnswerSection>
                   )}
                   <RichTextAnswer
@@ -819,11 +922,33 @@ function App() {
                 </>
               )}
             </AnswerSection>
+
+            <SmallHeadingContainer content="Highest-Authority Sources Newton Pulled From" />
+
             <Grid>
               {articles.map((article, index) => (
                 <ArticleCard key={index} article={article} index={index} />
               ))}
             </Grid>
+
+            {isReady && relatedQuestions && relatedQuestions.length > 0 && (
+                    <SmallHeadingContainer content="People Also Ask" style={{marginTop: '1.5rem'}}>
+                      {relatedQuestions.map((item, index) => (
+                        <RelatedQuestion
+                          key={index} 
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.1 }}
+                          onClick={() => {
+                            setQuery(item.question);
+                            getResearchArticles();
+                          }}
+                        >
+                          {item.emoji} {item.question}
+                        </RelatedQuestion>
+                      ))}
+                    </SmallHeadingContainer>
+                  )}
           </>
         ) : (
           <Welcome 

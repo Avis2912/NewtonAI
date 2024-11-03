@@ -51,7 +51,8 @@ const Overlay = styled(motion.div)`
 
 const CircleLarge = styled(motion.div)`
   width: 150px;
-  min-height: ${props => props.isResponding ? '175px' : '150px'};
+  min-height: ${props => props.isResponding ? '150px' : '150px'};
+  height: ${props => props.isResponding ? '175px' : '150px'};
   border-radius: 50%;
   background: url(${props => props.image}) no-repeat center center;
   background-size: cover;

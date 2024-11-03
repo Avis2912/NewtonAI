@@ -12,6 +12,7 @@ const ChatBar = styled.div`
   padding-top: 1.35rem;
   background: transparent;
   border-top: 0px solid rgba(0, 0, 0, 0.1);
+  z-index: 1000;
   
   input {
     flex: 1;
